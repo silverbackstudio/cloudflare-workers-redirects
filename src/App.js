@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import './App.css';
+import React, { useState, useEffect, useCallback } from 'react';
+import Redirect from './Redirect';
+import ConfigForm from './ConfigForm';
+import ConfigContext from './ConfigContext';
+import fetchApi from './fetchApi';
 
+import './App.css';
 
 function App() {
 
-  const [config, setConfig] = useState({
+  const [config, setConfig ] = useState({
     cfKey: '',
     cfEmail: '',
     cfAccount: '',
     cfNamespace: ''
   });
-
-  const [namespaces, setNamespaces] = useState([]);
 
   const [redirect, setRedirect] = useState({
     match: '',
@@ -20,17 +22,20 @@ function App() {
 
   const [redirects, setRedirects] = useState();  
 
-  const updateRedirects = () => {
+  const onSaveConfig = ( htmlEvent ) => {
+    htmlEvent.preventDefault(); 
+    const formData = new FormData(htmlEvent.target);
+    let newConfig = Object.fromEntries(formData);
+    setConfig( newConfig ); 
+  }
 
-    fetch(`http://localhost:8010/client/v4/accounts/${config.cfAccount}/storage/kv/namespaces/${config.cfNamespace}/values/index`, {
-      method: "GET",
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Auth-Email' : config.cfEmail,
-        'X-Auth-Key': config.cfKey
-      }
-    })
+  const fetchRedirects = useCallback(() => {
+
+    if ( !config.cfAccount || !config.cfEmail || !config.cfKey ) {
+      return;
+    }
+
+    fetchApi(`/namespaces/${config.cfNamespace}/keys`, { method: "GET" }, config)
     .then( response => response.json() )
     .then( response => {
 
@@ -39,16 +44,14 @@ function App() {
       if ( response.success === false ){
         throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}` ), '' );
       }
-
-      let redirects = new Map( response );
-
-      setRedirects( redirects );
+    
+      setRedirects( new Set(response.result.map( (item) => item.name )) );
     })
     .catch((err) => {
       console.error('ERROR IN FETCH INDEX', err);
     });
 
-  }
+  }, [config]);
 
   useEffect(() => {
     
@@ -57,39 +60,10 @@ function App() {
     }
 
     if ( config.cfNamespace ) {
-      updateRedirects();
+      fetchRedirects();
     }    
     
-    fetch(`http://localhost:8010/client/v4/accounts/${config.cfAccount}/storage/kv/namespaces/`, {
-      method: "GET",
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Auth-Email' : config.cfEmail,
-        'X-Auth-Key': config.cfKey
-      }
-    })
-    .then( response => response.json() )
-    .then( response => {
-      if ( ! response.success ){
-        throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}` ), '' );
-      }
-      setNamespaces( response.result );
-    })
-    .catch((err) => {
-      console.error('ERROR IN FETCH NAMESPACES', err);
-    });
-
-  }, [config]); // Only re-run the effect if count changes
-
-
-  const onSaveConfig = ( htmlEvent ) => {
-    htmlEvent.preventDefault(); 
-    const formData = new FormData(htmlEvent.target);
-    let config = Object.fromEntries(formData);
-    console.log('save config', config);    
-    setConfig( config ); 
-  }
+  }, [config, fetchRedirects]); // Only re-run the effect if count changes
 
   const onAddRedirect = (htmlEvent) => {
 
@@ -97,61 +71,27 @@ function App() {
 
     const redirectId = btoa(redirect.match);
 
-    return fetch(`http://localhost:8010/client/v4/accounts/${config.cfAccount}/storage/kv/namespaces/${config.cfNamespace}/values/${redirectId}`, {
-      method: "PUT",
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Auth-Email' : config.cfEmail,
-        'X-Auth-Key': config.cfKey
-      },      
+    return fetchApi(`/namespaces/${config.cfNamespace}/values/${redirectId}`, {
+      method: "PUT",     
       body: redirect.destination
-    })
+    }, config)
     .then( response => response.json() )
     .then( response => {
 
       console.log( 'REDIRECT SAVE RESPONSE', response );
 
       if ( ! response.success ){
-        throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}` ), '' );
+        throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}`, '' ) );
       }
 
       console.log( 'REDIRECT SAVE SUCCESS' );
 
       let redirectId = btoa(redirect.match);
-
-      redirects.set(redirectId, redirect);
-
-      console.log( 'SAVING REDIRECTS INDEX', redirects  );
-
-      let indexRequest = fetch(`http://localhost:8010/client/v4/accounts/${config.cfAccount}/storage/kv/namespaces/${config.cfNamespace}/values/index`, {
-        method: "PUT",
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-Auth-Email' : config.cfEmail,
-          'X-Auth-Key': config.cfKey
-        },
-        body: JSON.stringify( Array.from( redirects.entries() ) )
-      });
+      redirects.add(redirectId);
 
       setRedirect({ match: '', destination: '' });
-
-      return indexRequest;
-
+      setRedirects(redirects);
     })
-    .then( response => response.json() )
-    .then( response => {
-
-      console.log('REDIRECT INDEX SAVE', response);
-
-      if ( ! response.success ){
-        throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}` ), '' );
-      }
-
-      updateRedirects();
-
-    } )
     .catch(err => {
       console.error('ERROR SAVING REDIRECT', err);
     })
@@ -168,15 +108,9 @@ function App() {
 
     console.log( 'DELETE REDIRECT', redirectId );
 
-    return fetch(`http://localhost:8010/client/v4/accounts/${config.cfAccount}/storage/kv/namespaces/${config.cfNamespace}/values/${redirectId}`, {
+    return fetchApi(`/namespaces/${config.cfNamespace}/values/${redirectId}`, {
       method: "DELETE",
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Auth-Email' : config.cfEmail,
-        'X-Auth-Key': config.cfKey
-      }
-    })
+    }, config)
     .then( response => response.json() )
     .then( response => {
 
@@ -184,70 +118,25 @@ function App() {
         throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}` ), '' );
       }
 
-      console.log('REDIRECT DELETED', redirectId);
-
       redirects.delete(redirectId);
+      setRedirects(redirects);
 
-      console.log('UPDATING REDIRECT INDEX', redirectId);
-
-      return fetch(`http://localhost:8010/client/v4/accounts/${config.cfAccount}/storage/kv/namespaces/${config.cfNamespace}/values/index`, {
-        method: "PUT",
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-Auth-Email' : config.cfEmail,
-          'X-Auth-Key': config.cfKey
-        },
-        body: JSON.stringify( Array.from( redirects.entries() ) )
-      })
+      console.log('REDIRECT DELETED', redirectId);
     })
-    .then( response => {
-
-      if ( response.success === false ){
-        throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}` ), '' );
-      }
-
-      updateRedirects();
-
-      console.log('REDIRECT INDEX UPDATED', redirects);
-
-    })    
     .catch(err => {
       console.error('ERROR DELETING REDIRECT', err);
     })    
 
   }
 
-
   return (
+    <ConfigContext.Provider value={config}>
     <div className="App">
       <header className="App-header">
         <h1>SVBK Redirect Manager</h1>
       </header>
       <h2>Cloudflare</h2>
-      <form id="cloudflare" onSubmit={ onSaveConfig }>
-        <label>
-          Cloudflare API Key
-          <input type="text" name="cfKey" defaultValue={config.cfKey} />
-        </label>
-        <label>
-          Cloudflare Email     
-          <input type="text" name="cfEmail" defaultValue={config.cfEmail}/>
-        </label>        
-        <label>
-          Cloudflare Account ID      
-          <input type="text" name="cfAccount" defaultValue={config.cfAccount} />
-        </label> 
-        { namespaces && (
-        <label>
-          Namespace    
-          <select name="cfNamespace"  >
-            { namespaces.map( (namespace) => (<option value={ namespace.id }>{namespace.title}</option>) ) }
-          </select>          
-        </label>       
-        )}
-        <button type="submit" >Save</button>                 
-      </form>
+      <ConfigForm onSubmit={onSaveConfig} />
       { config.cfNamespace && (
         <div>
         <h2>Add Redirect</h2>
@@ -275,20 +164,13 @@ function App() {
             </tr>
             </thead>
             <tbody>
-            { Array.from(redirects.entries()).map( ([redirectId, redirect]) => (
-              <tr className="redirect" key={redirectId} >
-                <td className="redirect__match">{redirect.match}</td>
-                <td className="redirect__dest">{redirect.destination}</td>
-                <td>
-                  <button className="redirect__delete" data-id={redirectId} onClick={ onRedirectDelete }>Delete</button>
-                </td>
-              </tr>
-            ) ) }
+            { Array.from(redirects.values()).map( redirectId => (<Redirect redirectId={redirectId} key={redirectId} onDelete={onRedirectDelete} />) ) }
             </tbody>
           </table>
         </div>
       )} 
     </div>
+    </ConfigContext.Provider>
   );
 }
 
