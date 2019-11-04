@@ -133,7 +133,7 @@ function App() {
     <ConfigContext.Provider value={config}>
     <div className="App">
       <header className="App-header">
-        <h1>SVBK Redirect Manager</h1>
+        <h1>Cloudflare Workers Redirect Manager</h1>
       </header>
       <h2>Cloudflare</h2>
       <ConfigForm onSubmit={onSaveConfig} />
@@ -169,6 +169,7 @@ function App() {
           </table>
         </div>
       )} 
+      <footer>by Silverback Studio - <a href="https://github.com/silverbackstudio/cfw-redirects">GitHub repo</a></footer>
     </div>
     </ConfigContext.Provider>
   );
