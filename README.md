@@ -1,8 +1,89 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Cloudflare Workers Redirect Manager
 
-## Available Scripts
+Store redirect entries (ex. `source_url -> dest_url`) in [Cloudflare KV](https://www.cloudflare.com/products/workers-kv/) and use them in [Cloudflare Workers](https://www.cloudflare.com/it-it/products/cloudflare-workers/) to apply redirects at CDN level.
 
-In the project directory, you can run:
+For each redirect the app encodes source url, by now using `base64` to keep things fast and simple, and uses it as key for the KV. The destination URL is saved as KV value.
+
+## Cloudflare API Proxy
+Becouse this is a full React app, there is no backend that does the logic. In order to comunicate with the Cloudflare REST API, without beeing blocked by the browser's CORS policy, we need to proxy the requests. This app provides a small NodeJS proxy that does exactly this job.
+
+To start the proxy run:
+
+```bash
+npm run proxy
+```
+
+The proxy runs by default at port `8010`.
+
+## Worker Setup
+
+### Create namespace
+
+1. Open the Cloudflare dash
+2. In the main drop-down menu (domain selector), select `Workers` and click the `KV` tab.
+3. Create new namespace and give it a name (ex. `Redirects`)
+
+### Worker Script
+
+Create a new script with this code:
+
+```js
+addEventListener('fetch', event => {
+    event.respondWith(fetchAndApply(event.request))
+})
+
+async function fetchAndApply(request) {
+  
+    let url = new URL(request.url); 
+
+    // Remove url parameters, not supported yet
+    url.search = '';
+
+    // Encode URL (without parameters) in base64
+    let url_hash = btoa(url.href);
+
+    // Try to find a corresponding redirect entry
+    let redirect = await REDIRECTS.get(url_hash);
+
+    // If corresponding redirect exists...
+    if ( redirect ) {
+        // ... return a HTTP 301 response.
+        return new Response(null, { 
+            'status' : 301 , 
+            'headers' : { 
+                'Location': redirect, 
+                'X-Redirect-By': 'CF-W' 
+                } 
+            });
+    }
+
+    // Proxy the original request
+    return await fetch(request);
+}
+
+```
+
+### Cloudflare KV namespace binding
+
+1. In the worker script editor, click on the KV tab
+2. Click on `Add Binding` tab
+3. Select the namespace created before and use `REDIRECTS` as variable name
+
+### Add Worker route 
+
+1. Select your website domain
+2. Click on the `Workers` icon in the site menu
+3. Click `Add Route` and type your website domain
+
+Rember to add all possible worker routes for your website:
+
+```
+example.com/*
+www.example.com/*
+```
+
+
+## Development
 
 ### `npm start`
 
@@ -37,32 +118,3 @@ Instead, it will copy all the configuration files and the transitive dependencie
 
 You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/code-splitting
-
-### Analyzing the Bundle Size
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size
-
-### Making a Progressive Web App
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app
-
-### Advanced Configuration
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/advanced-configuration
-
-### Deployment
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/deployment
-
-### `npm run build` fails to minify
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
