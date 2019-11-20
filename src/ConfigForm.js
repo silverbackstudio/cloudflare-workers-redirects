@@ -16,7 +16,7 @@ function ConfigForm(props) {
       return;
     }
     
-    fetchApi(`/namespaces`, { method: "GET" }, config)
+    fetchApi(`namespaces`, { method: "GET",  headers : { 'Content-Type': 'application/json' } }, config)
       .then( response => response.json() )
       .then( response => {
 
@@ -28,7 +28,7 @@ function ConfigForm(props) {
           throw Error( response.error, '' );
         }
 
-        if ( response.errors ){
+        if ( response.errors && response.errors.length > 0 ){
           throw Error( response.errors.reduce( (errorString, error) => `${errorString} ${error.message}`, '' ));
         }
       })
