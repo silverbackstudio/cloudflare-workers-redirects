@@ -7,15 +7,14 @@ export default function fetchApi(path, payload, config){
   let options = Object.assign(
     {
       method: "GET",
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Auth-Email' : config.cfEmail,
-        'X-Auth-Key': config.cfKey
-      }, 
+      headers: {}
     },
     payload
   );
 
+  options.headers['X-Auth-Email'] = config.cfEmail;
+  options.headers['X-Auth-Key'] = config.cfKey;
+
   return fetch(url, options);
+
 }
