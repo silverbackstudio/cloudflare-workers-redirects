@@ -10,6 +10,13 @@ label {
     clear: both;
 }
 
+tr.redirect:hover td {
+    border-bottom: 1px solid #000;
+}
+tr.redirect:nth-child(odd) {
+    background: #e8e8e8;
+}
+
 footer {
     margin-top: 2em;
 }
