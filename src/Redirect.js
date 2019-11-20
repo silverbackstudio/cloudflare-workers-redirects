@@ -14,8 +14,9 @@ function Redirect(props) {
   const [redirect, setRedirect] = useState(null);
 
   const loadDetails = useCallback(() => {    
-      fetchApi(`/namespaces/${config.cfNamespace}/values/${redirectId}`, {
+      fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
         method: "GET",
+        headers : { 'Content-Type': 'application/json' }
       }, config)
       .then( response => response.text() )
       .then( response => {
