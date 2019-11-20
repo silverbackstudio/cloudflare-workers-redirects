@@ -35,7 +35,7 @@ function App() {
       return;
     }
 
-    fetchApi(`/namespaces/${config.cfNamespace}/keys`, { method: "GET" }, config)
+    fetchApi(`namespaces/${config.cfNamespace}/keys`, { method: "GET", headers : { 'Content-Type': 'application/json' } }, config)
     .then( response => response.json() )
     .then( response => {
 
@@ -71,7 +71,7 @@ function App() {
 
     const redirectId = btoa(redirect.match);
 
-    return fetchApi(`/namespaces/${config.cfNamespace}/values/${redirectId}`, {
+    return fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
       method: "PUT",     
       body: redirect.destination
     }, config)
@@ -108,7 +108,7 @@ function App() {
 
     console.log( 'DELETE REDIRECT', redirectId );
 
-    return fetchApi(`/namespaces/${config.cfNamespace}/values/${redirectId}`, {
+    return fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
       method: "DELETE",
     }, config)
     .then( response => response.json() )
