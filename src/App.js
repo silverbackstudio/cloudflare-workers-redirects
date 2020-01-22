@@ -6,6 +6,22 @@ import fetchApi from './fetchApi';
 
 import './App.css';
 
+async function calculateHash(message) {
+  const msgUint8 = new TextEncoder().encode(message);                           // encode as (utf-8) Uint8Array
+  const hashBuffer = await crypto.subtle.digest('SHA-1', msgUint8);           // hash the message  
+  const hashArray = Array.from(new Uint8Array(hashBuffer));                     // convert buffer to byte array
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); // convert bytes to hex string
+  return hashHex;
+}
+
+const newRedirect = {
+  match: '',
+  destination: '',
+  type: 301
+}
+
+const PAGE_SIZE = 25;
+
 function App() {
 
   const [config, setConfig ] = useState({
@@ -15,12 +31,9 @@ function App() {
     cfNamespace: ''
   });
 
-  const [redirect, setRedirect] = useState({
-    match: '',
-    destination: '',
-  });  
-
-  const [redirects, setRedirects] = useState();  
+  const [redirect, setRedirect] = useState(newRedirect);  
+  const [redirects, setRedirects] = useState( new Set() );  
+  const [page, setPage] = useState(1);  
 
   const onSaveConfig = ( htmlEvent ) => {
     htmlEvent.preventDefault(); 
@@ -65,15 +78,15 @@ function App() {
     
   }, [config, fetchRedirects]); // Only re-run the effect if count changes
 
-  const onAddRedirect = (htmlEvent) => {
+  const onAddRedirect = async (htmlEvent) => {
 
     htmlEvent.preventDefault(); 
 
-    const redirectId = btoa(redirect.match);
+    const redirectId = await calculateHash(redirect.match);
 
     return fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
       method: "PUT",     
-      body: redirect.destination
+      body: JSON.stringify(redirect)
     }, config)
     .then( response => response.json() )
     .then( response => {
@@ -86,10 +99,9 @@ function App() {
 
       console.log( 'REDIRECT SAVE SUCCESS' );
 
-      let redirectId = btoa(redirect.match);
       redirects.add(redirectId);
 
-      setRedirect({ match: '', destination: '' });
+      setRedirect(newRedirect);
       setRedirects(redirects);
     })
     .catch(err => {
@@ -129,6 +141,9 @@ function App() {
 
   }
 
+  const pages = Math.floor( redirects.size / PAGE_SIZE );
+
+
   return (
     <ConfigContext.Provider value={config}>
     <div className="App">
@@ -153,7 +168,7 @@ function App() {
         </form>     
         </div>
       )} 
-      { redirects && (
+      { redirects.size > 0 && (
         <div id="redirects">
           <h2>Existing Redirects</h2>          
           <table>
@@ -164,9 +179,11 @@ function App() {
             </tr>
             </thead>
             <tbody>
-            { Array.from(redirects.values()).map( redirectId => (<Redirect redirectId={redirectId} key={redirectId} onDelete={onRedirectDelete} />) ) }
+            { Array.from(redirects.values()).slice( PAGE_SIZE * (page - 1), PAGE_SIZE * page).map( redirectId => (<Redirect redirectId={redirectId} key={redirectId} onDelete={onRedirectDelete} />) ) }
             </tbody>
           </table>
+          { (page < pages ) && (<button onClick={ () => setPage(page+1) } >Next Page</button>) }
+          { (page <= 1 ) && (<button onClick={ () => setPage(page-1) } >Prev Page</button>) }
         </div>
       )} 
       <footer>by Silverback Studio - <a href="https://github.com/silverbackstudio/cfw-redirects">GitHub repo</a></footer>

@@ -1,4 +1,4 @@
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import fetchApi from './fetchApi';
 import ConfigContext from './ConfigContext';
 
@@ -13,12 +13,12 @@ function Redirect(props) {
 
   const [redirect, setRedirect] = useState(null);
 
-  const loadDetails = useCallback(() => {    
+  useEffect(() => {    
       fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
         method: "GET",
         headers : { 'Content-Type': 'application/json' }
       }, config)
-      .then( response => response.text() )
+      .then( response => response.json() )
       .then( response => {
 
         if ( response.error ){
@@ -36,20 +36,17 @@ function Redirect(props) {
       });
   }, [config, redirectId]);
 
-  let match;
 
-  try{
-    match = atob(redirectId);
-  } catch(e) {
-    console.error('Unable to decode', redirectId, e);
+  if ( !redirect ) {
     return (<></>);
   }
 
+
   return (
     <tr className="redirect" key={redirectId} >
-      <td className="redirect__match">{match}</td>
+      <td className="redirect__match">{redirect.match}</td>
       <td className="redirect__dest">
-        {redirect ? (redirect) : (<button onClick={ loadDetails }>Show destination</button>) }
+        {redirect.destination}
       </td>
       <td>
         <button className="redirect__delete" data-id={redirectId} onClick={ onDelete }>Delete</button>
