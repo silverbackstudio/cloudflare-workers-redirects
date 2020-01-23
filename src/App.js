@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Redirect from './Redirect';
+import RedirectForm from './RedirectForm';
 import ConfigForm from './ConfigForm';
 import ConfigContext from './ConfigContext';
 import fetchApi from './fetchApi';
@@ -7,14 +8,7 @@ import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 import calculateHash from './hash';
-import { Row, Container, Col, Button, Table } from 'react-bootstrap';
-import { Form } from 'react-bootstrap';
-
-const newRedirect = {
-  match: '',
-  destination: '',
-  type: 301
-}
+import { Row, Container, Col, Table  } from 'react-bootstrap';
 
 const PAGE_SIZE = 10;
 
@@ -27,7 +21,6 @@ function App() {
     cfNamespace: ''
   });
 
-  const [redirect, setRedirect] = useState(newRedirect);
   const [redirects, setRedirects] = useState(new Set());
   const [page, setPage] = useState(0);
   const [cursors, setCursors] = useState(['']);
@@ -78,11 +71,18 @@ function App() {
 
   }, [config, page, cursors]);
 
-  const onAddRedirect = async (htmlEvent) => {
+  console.log('CURRENT REDIRECTS', redirects);
 
-    htmlEvent.preventDefault();
+  const onAddRedirect = async (redirect) => {
+
+    if ( !redirect.match || !redirect.destination) {
+      console.error('Missing redirect informations', redirect );
+      return;
+    }
 
     const redirectId = await calculateHash(redirect.match);
+
+    console.log('CREATE NEW REDIRECT %s with id: %s', redirect, redirectId);
 
     return fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
       method: "PUT",
@@ -91,18 +91,19 @@ function App() {
       .then(response => response.json())
       .then(response => {
 
-        console.log('REDIRECT SAVE RESPONSE', response);
-
         if (!response.success) {
           throw Error(response.errors.reduce((errorString, error) => `${errorString} ${error.message}`, ''));
         }
 
         console.log('REDIRECT SAVE SUCCESS');
 
-        redirects.add(redirectId);
+        let newRedirects = new Set( redirects );
 
-        setRedirect(newRedirect);
-        setRedirects(redirects);
+        newRedirects.add(redirectId);
+
+        console.log('UPDATE REDIRECTS', newRedirects);
+
+        setRedirects(newRedirects);
       })
       .catch(err => {
         console.error('ERROR SAVING REDIRECT', err);
@@ -164,19 +165,7 @@ function App() {
             </Col>
             <Col>
               <h2>Add Redirect</h2>
-              <Form id="add-redirect" onSubmit={onAddRedirect}>
-                <Form.Group controlId="match_url">
-                  <Form.Label>Match URL</Form.Label>
-                  <Form.Control type="text" value={redirect.match} onChange={(event) => { setRedirect({ ...redirect, match: event.target.value }) }} />
-                </Form.Group>
-                <Form.Group controlId="redirect_url">
-                  <Form.Label>Redirect URL </Form.Label>
-                  <Form.Control type="text" value={redirect.destination} onChange={(event) => { setRedirect({ ...redirect, destination: event.target.value }) }} />
-                </Form.Group>
-                <Button variant="success" type="submit" disabled={!config.cfNamespace} >
-                  Add
-              </Button>
-              </Form>
+              <RedirectForm onSubmit={onAddRedirect} disallowSubmit={ !config.cfNamespace } />
             </Col>
           </Row>
           <Row id="redirects">
