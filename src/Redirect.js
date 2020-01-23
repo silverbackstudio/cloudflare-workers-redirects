@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import fetchApi from './fetchApi';
 import ConfigContext from './ConfigContext';
+import { Button } from 'react-bootstrap';
 
 function Redirect(props) {
 
@@ -12,11 +13,13 @@ function Redirect(props) {
   } = props;
 
   const [redirect, setRedirect] = useState(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {    
       fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
         method: "GET",
-        headers : { 'Content-Type': 'application/json' }
+        headers : { 'Content-Type': 'application/json' },
+        cache: "force-cache"
       }, config)
       .then( response => response.json() )
       .then( response => {
@@ -33,14 +36,26 @@ function Redirect(props) {
       })
       .catch((err) => {
         console.error('ERROR IN FETCH REDIRECT', err);
+        setError(err);
       });
   }, [config, redirectId]);
 
 
-  if ( !redirect ) {
-    return (<></>);
+  if ( error ) {
+    return (
+      <tr className="redirect" key={redirectId} >
+        <td className="redirect__error" colSpan="3">Error: {error.message}</td>
+      </tr>
+    );
   }
 
+  if ( !redirect ) {
+    return (
+      <tr className="redirect" key={redirectId} >
+        <td className="redirect__placeholder" colSpan="3">Loading..</td>
+      </tr>
+    );
+  }
 
   return (
     <tr className="redirect" key={redirectId} >
@@ -49,7 +64,7 @@ function Redirect(props) {
         {redirect.destination}
       </td>
       <td>
-        <button className="redirect__delete" data-id={redirectId} onClick={ onDelete }>Delete</button>
+        <Button className="redirect__delete" data-id={redirectId} onClick={ onDelete } variant="danger">Delete</Button>
       </td>
     </tr>
   );

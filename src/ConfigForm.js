@@ -1,14 +1,30 @@
 import React, { useState, useEffect, useContext } from 'react';
 import ConfigContext from './ConfigContext';
 import fetchApi from './fetchApi';
+import { Form, Button } from 'react-bootstrap';
 
 function ConfigForm(props) {
 
   const { onSubmit } = props;
 
-  const config = useContext(ConfigContext);
-
   const [namespaces, setNamespaces] = useState([]);
+  const [config, setConfig] = useState(useContext(ConfigContext));
+
+  const handleInputChange = (event) => {
+    const target = event.target;
+    const value =
+      target.type === 'checkbox'
+        ? target.checked
+        : target.value;
+    const name = target.id;
+
+    setConfig( Object.assign({}, config, { [name]: value }) );
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSubmit(config);
+  }
 
   useEffect(() => {
     
@@ -39,33 +55,32 @@ function ConfigForm(props) {
   }, [config]); // Only re-run the effect if count changes
 
   return (
-      <form id="cloudflare" onSubmit={ onSubmit }>
-        <label>
-          Cloudflare API Key
-          <input type="text" name="cfKey" defaultValue={config.cfKey} />
-        </label>
-        <label>
-          Cloudflare Email     
-          <input type="text" name="cfEmail" defaultValue={config.cfEmail}/>
-        </label>        
-        <label>
-          Cloudflare Account ID
-          <input type="text" name="cfAccount" defaultValue={config.cfAccount} />
-        </label> 
-        <label>
-          Cloudflare Namespace ID      
-          <input type="text" name="cfNamespace" defaultValue={config.cfNamespace} />
-        </label>         
-        { namespaces && (
-        <label>
-          Namespace    
-          <select name="cfNamespace"  >
+      <Form id="authentication" onSubmit={ handleSubmit }>
+        <Form.Group controlId="cfKey">
+          <Form.Label>Cloudflare API Key</Form.Label>
+          <Form.Control type="text" defaultValue={config.cfKey} onChange={handleInputChange} />
+        </Form.Group>        
+        <Form.Group controlId="cfEmail">
+          <Form.Label>Cloudflare Email</Form.Label>
+          <Form.Control type="email" defaultValue={config.cfEmail} onChange={handleInputChange} />
+        </Form.Group>  
+        <Form.Group controlId="cfAccount">
+          <Form.Label>Cloudflare Account ID</Form.Label>
+          <Form.Control type="text" defaultValue={config.cfAccount} onChange={handleInputChange} />
+        </Form.Group>                         
+        <Form.Group controlId="cfNamespace">
+          <Form.Label>Cloudflare Namespace ID</Form.Label>
+          <Form.Control type="text" defaultValue={config.cfNamespace} onChange={handleInputChange} />
+          { namespaces && (
+          <Form.Control type="text" defaultValue={config.cfNamespace} as="select" onChange={handleInputChange}>
             { namespaces.map( (namespace) => (<option value={ namespace.id } key={namespace.id} >{namespace.title}</option>) ) }
-          </select>          
-        </label>       
-        )}
-        <button type="submit" >Save</button>                 
-      </form>
+          </Form.Control>
+          )}
+        </Form.Group>                   
+        <Button variant="primary" type="submit">
+          Save
+        </Button>        
+      </Form>
   );
 }
 
