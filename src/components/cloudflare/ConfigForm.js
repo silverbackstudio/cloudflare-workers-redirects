@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import ConfigContext from './ConfigContext';
-import fetchApi from './fetchApi';
+import fetchApi from '../../lib/fetchApi';
 import { Form, Button } from 'react-bootstrap';
 
 function ConfigForm(props) {

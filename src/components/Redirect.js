@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
-import fetchApi from './fetchApi';
-import ConfigContext from './ConfigContext';
+import fetchApi from '../lib/fetchApi';
+import ConfigContext from './cloudflare/ConfigContext';
 import { Button } from 'react-bootstrap';
 
 function Redirect(props) {

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import Redirect from './Redirect';
-import RedirectForm from './RedirectForm';
-import ConfigForm from './ConfigForm';
-import ConfigContext from './ConfigContext';
-import fetchApi from './fetchApi';
+import Redirect from './components/Redirect';
+import RedirectForm from './components/RedirectForm';
+import ConfigForm from './components/cloudflare/ConfigForm';
+import ConfigContext from './components/cloudflare/ConfigContext';
+import fetchApi from './lib/fetchApi';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-import calculateHash from './hash';
+import calculateHash from './lib/hash';
 import { Row, Container, Col, Table  } from 'react-bootstrap';
 
 const PAGE_SIZE = 10;
@@ -71,8 +71,6 @@ function App() {
 
   }, [config, page, cursors]);
 
-  console.log('CURRENT REDIRECTS', redirects);
-
   const onAddRedirect = async (redirect) => {
 
     if ( !redirect.match || !redirect.destination) {
@@ -100,8 +98,6 @@ function App() {
         let newRedirects = new Set( redirects );
 
         newRedirects.add(redirectId);
-
-        console.log('UPDATE REDIRECTS', newRedirects);
 
         setRedirects(newRedirects);
       })
