@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import ConfigContext from './ConfigContext';
-import fetchApi from '../../lib/fetchApi';
+import fetchApi from '../lib/cloudflareRedirects';
 import { Form, Button } from 'react-bootstrap';
 
-function ConfigForm(props) {
+function CloudflareConfigForm(props) {
 
   const { onSubmit } = props;
 
@@ -28,7 +28,7 @@ function ConfigForm(props) {
 
   useEffect(() => {
     
-    if ( !config.cfAccount || !config.cfEmail || !config.cfKey ) {
+    if ( !config.cfAccount || !config.cfKey ) {
       return;
     }
     
@@ -57,13 +57,9 @@ function ConfigForm(props) {
   return (
       <Form id="authentication" onSubmit={ handleSubmit }>
         <Form.Group controlId="cfKey">
-          <Form.Label>Cloudflare API Key</Form.Label>
+          <Form.Label>Cloudflare API Token</Form.Label>
           <Form.Control type="text" defaultValue={config.cfKey} onChange={handleInputChange} />
         </Form.Group>        
-        <Form.Group controlId="cfEmail">
-          <Form.Label>Cloudflare Email</Form.Label>
-          <Form.Control type="email" defaultValue={config.cfEmail} onChange={handleInputChange} />
-        </Form.Group>  
         <Form.Group controlId="cfAccount">
           <Form.Label>Cloudflare Account ID</Form.Label>
           <Form.Control type="text" defaultValue={config.cfAccount} onChange={handleInputChange} />
@@ -84,4 +80,4 @@ function ConfigForm(props) {
   );
 }
 
-export default ConfigForm;
+export default CloudflareConfigForm;

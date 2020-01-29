@@ -1,80 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import Redirect from './components/Redirect';
-import RedirectForm from './components/RedirectForm';
-import ConfigForm from './components/cloudflare/ConfigForm';
-import ConfigContext from './components/cloudflare/ConfigContext';
-import fetchApi from './lib/fetchApi';
+import React, { useState } from 'react';
+import ConfigContext from './components/ConfigContext';
+import calculateHash from './lib/hash';
+import { Row, Container, Col } from 'react-bootstrap';
+import fetchApi from './lib/cloudflareRedirects';
+import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
+import PageConfig from './pages/config';
+import PageExisting from './pages/existing';
+import PageGoogleSearch from './pages/google';
+import { withCookies, useCookies } from 'react-cookie';
+
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-
-import calculateHash from './lib/hash';
-import { Row, Container, Col, Table  } from 'react-bootstrap';
-
-const PAGE_SIZE = 10;
+import AppNavbar from './components/AppNavbar';
 
 function App() {
 
-  const [config, setConfig] = useState({
+  const [cookies, setCookie ] = useCookies(['redirectConfig']);
+
+  const [config, setConfig] = useState(Object.assign({
     cfKey: '',
-    cfEmail: '',
     cfAccount: '',
     cfNamespace: ''
-  });
+  }, cookies.redirectConfig));
 
-  const [redirects, setRedirects] = useState(new Set());
-  const [page, setPage] = useState(0);
-  const [cursors, setCursors] = useState(['']);
-  const [loading, setLoading] = useState(false);
 
   const onSaveConfig = (newConfig) => {
-    setConfig(newConfig);
+    let updatedConfig = Object.assign({}, config, newConfig);
+    
+    setCookie('redirectConfig', updatedConfig);
+    setConfig(updatedConfig);
   }
 
-  useEffect(() => {
+  const onSaveRedirect = async (redirect) => {
 
-    if (!config.cfNamespace || !config.cfAccount || !config.cfEmail || !config.cfKey) {
-      return;
-    }
-
-    setLoading(true);
-
-    const cursor = cursors[page];
-
-    let url = `namespaces/${config.cfNamespace}/keys?limit=${PAGE_SIZE}`;
-
-    if (cursor) {
-      url += `&cursor=${cursor}`;
-    }
-
-    fetchApi(url, { method: "GET", headers: { 'Content-Type': 'application/json' }, cache: "force-cache" }, config)
-      .then(response => response.json())
-      .then(response => {
-
-        console.log('GET REDIRECT INDEX', response);
-
-        if (response.success === false) {
-          throw Error(response.errors.reduce((errorString, error) => `${errorString} ${error.message}`), '');
-        }
-
-        if (response.result_info && response.result_info.cursor) {
-          cursors[page + 1] = response.result_info.cursor;
-          setCursors(cursors);
-        }
-
-        setRedirects(new Set(response.result.map((item) => item.name)));
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('ERROR IN FETCH INDEX', err);
-        setLoading(false);
-      });
-
-  }, [config, page, cursors]);
-
-  const onAddRedirect = async (redirect) => {
-
-    if ( !redirect.match || !redirect.destination) {
-      console.error('Missing redirect informations', redirect );
+    if (!redirect.match || !redirect.destination) {
+      console.error('Missing redirect informations', redirect);
       return;
     }
 
@@ -84,6 +44,7 @@ function App() {
 
     return fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
       method: "PUT",
+      headers : { 'Content-Type': 'application/json' },
       body: JSON.stringify(redirect)
     }, config)
       .then(response => response.json())
@@ -95,11 +56,7 @@ function App() {
 
         console.log('REDIRECT SAVE SUCCESS');
 
-        let newRedirects = new Set( redirects );
-
-        newRedirects.add(redirectId);
-
-        setRedirects(newRedirects);
+        return redirectId;
       })
       .catch(err => {
         console.error('ERROR SAVING REDIRECT', err);
@@ -107,9 +64,7 @@ function App() {
 
   }
 
-  const onRedirectDelete = (htmlEvent) => {
-
-    const redirectId = htmlEvent.target.getAttribute('data-id');
+  const onDeleteRedirect = async (redirectId) => {
 
     if (!window.confirm('Are you sure you wish to delete this item?')) {
       return;
@@ -118,6 +73,7 @@ function App() {
     console.log('DELETE REDIRECT', redirectId);
 
     return fetchApi(`namespaces/${config.cfNamespace}/values/${redirectId}`, {
+      headers : { 'Content-Type': 'application/json' },
       method: "DELETE",
     }, config)
       .then(response => response.json())
@@ -127,9 +83,6 @@ function App() {
           throw Error(response.errors.reduce((errorString, error) => `${errorString} ${error.message}`), '');
         }
 
-        redirects.delete(redirectId);
-        setRedirects(redirects);
-
         console.log('REDIRECT DELETED', redirectId);
       })
       .catch(err => {
@@ -138,61 +91,31 @@ function App() {
 
   }
 
-  const changePage = (direction = 1) => {
-    redirects.clear();
-    setRedirects(redirects);
-    setPage(page + direction);
-  }
-
   return (
     <ConfigContext.Provider value={config}>
-        <Container className="App">
-          <Row>
-            <Col>
-              <header className="App-header">
-                <h1>Cloudflare Workers Redirect Manager</h1>
-              </header>            
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <h2>Authentication</h2>
-              <ConfigForm onSubmit={onSaveConfig} />
-            </Col>
-            <Col>
-              <h2>Add Redirect</h2>
-              <RedirectForm onSubmit={onAddRedirect} disallowSubmit={ !config.cfNamespace } />
-            </Col>
-          </Row>
-          <Row id="redirects">
-            <Col>
-              <h2>Existing Redirects</h2>
-              {loading && (<div className="loading">Loading..</div>)}
-              {redirects.size > 0 && (
-                <Table striped bordered hover>
-                  <thead>
-                    <tr>
-                      <th>Source</th>
-                      <th>Destination</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from(redirects.values()).map(redirectId => (<Redirect redirectId={redirectId} key={redirectId} onDelete={onRedirectDelete} />))}
-                  </tbody>
-                </Table>
-              )}
-              {(page > 0) && (<button onClick={() => changePage(-1)} >Prev Page</button>)}
-              {(cursors[page + 1]) && (<button onClick={() => changePage()} >Next Page</button>)}
-            </Col>
-          </Row>
-          <Row id="redirects">
-            <Col>
-            <footer>by Silverback Studio - <a href="https://github.com/silverbackstudio/cfw-redirects">GitHub repo</a></footer>            
-            </Col>        
-          </Row>
-        </Container>
-      </ConfigContext.Provider>
+      <Router>
+        <AppNavbar />
+        <Switch>
+          <Route path="/google">
+            <PageGoogleSearch onSaveRedirect={onSaveRedirect} onDeleteRedirect={onDeleteRedirect} />
+          </Route>
+          <Route path="/config">
+            <PageConfig onSave={onSaveConfig} />
+          </Route>
+          <Route exact path="/">
+            <PageExisting onSaveRedirect={onSaveRedirect} onDeleteRedirect={onDeleteRedirect} />
+          </Route>
+        </Switch>
+      </Router>
+      <Container>
+        <Row>
+          <Col>
+            <footer>by Silverback Studio - <a href="https://github.com/silverbackstudio/cfw-redirects">GitHub repo</a></footer>
+          </Col>
+        </Row>
+      </Container>
+    </ConfigContext.Provider>
   );
 }
 
-export default App;
+export default withCookies(App);

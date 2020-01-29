@@ -11,7 +11,7 @@ const proxy = http.createServer( function(request, response){
     if ( request.method === 'OPTIONS' ) {
         response.writeHead(200, { 
             'access-control-allow-origin': '*',
-            'access-control-allow-headers': 'X-Auth-Key, X-Auth-Email, Content-Type',
+            'access-control-allow-headers': 'Authorization, Content-Type',
             'access-control-allow-methods': 'GET, POST, PUT, DELETE'
         });
         response.end();
@@ -28,13 +28,9 @@ const proxy = http.createServer( function(request, response){
         }
     };
 
-    if ( request.headers['x-auth-key'] ) {
-        request_options.headers['x-auth-key'] = request.headers['x-auth-key'];
+    if ( request.headers['authorization'] ) {
+        request_options.headers['authorization'] = request.headers['authorization'];
     }
-
-    if ( request.headers['x-auth-email'] ) {
-        request_options.headers['x-auth-email'] = request.headers['x-auth-email'];
-    }    
 
     var proxy_request = https.request(request_options, function(proxy_response){
         proxy_response.pipe(response);
